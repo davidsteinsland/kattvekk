@@ -6,8 +6,7 @@ typedef enum {
 
 typedef enum {
   SENSOR_IDLE,
-  SENSOR_TRIGGERED,
-  SENSOR_WAITING_FOR_LOW
+  SENSOR_TRIGGERED
 } SensorState;
 
 // KONFIGURASJON
@@ -43,41 +42,37 @@ void close_valve() {
   digitalWrite(RELE_PIN, LOW);
 }
 
-void loop() {
+bool updateSensorState() {
   int sensorValue = digitalRead(SENSOR_PIN);
-  
+  bool lowToHighEdge = false;
+
   switch (sensorState) {
     case SENSOR_IDLE:
       if (sensorValue == HIGH) {
+        lowToHighEdge = true;
         sensorState = SENSOR_TRIGGERED;
-      }
-    break;
-    
-    case SENSOR_TRIGGERED:
-      if (sensorValue == LOW) {
-        sensorState = SENSOR_IDLE;
-      } else {
-        sensorState = SENSOR_WAITING_FOR_LOW;
       }
     break;
 
     // håndterer et vedvarende HIGH-signal slik
     // at ikke ventilen åpnes igjen uten at signalet først går til LOW
-    case SENSOR_WAITING_FOR_LOW:
+    case SENSOR_TRIGGERED:
       if (sensorValue == LOW) {
         sensorState = SENSOR_IDLE;
       }
     break;
   }
+}
 
+void updateProgramState(bool motionDetected) {
   switch (programState) {
     case VALVE_CLOSED:
-      if (sensorState == SENSOR_TRIGGERED) {
+      if (motionDetected) {
         programState = VALVE_OPENED;
         valveOpenTime = millis();
         open_valve();
       }
-      break;
+    break;
 
     case VALVE_OPENED: {
       unsigned long valveOpenDuration = millis() - valveOpenTime;
@@ -100,4 +95,9 @@ void loop() {
       break;
     }
   }
+}
+
+void loop() {
+  bool motionDetected = updateSensorState();
+  updateProgramState(motionDetected);
 }
